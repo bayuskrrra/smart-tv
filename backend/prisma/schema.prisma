@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  KARYAWAN
+  ADMIN
+}
+
+enum AssetStatus {
+  TERSEDIA
+  DIPINJAM
+  MAINTENANCE
+  RUSAK
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ONGOING
+  RETURNED
+  OVERDUE
+}
+
+enum HandoverType {
+  PENGAMBILAN
+  PENGEMBALIAN
+}
+
+model User {
+  id              String   @id @default(uuid())
+  nama            String
+  email           String   @unique
+  passwordHash    String   @map("password_hash")
+  departemen      String
+  noHp            String?  @map("no_hp")
+  telegramChatId  String?  @map("telegram_chat_id")
+  whatsappJid     String?  @map("whatsapp_jid")
+  role            Role     @default(KARYAWAN)
+  isBlacklisted   Boolean  @default(false) @map("is_blacklisted")
+  blacklistReason String?  @map("blacklist_reason")
+  lateCount       Int      @default(0) @map("late_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  loans         Loan[]         @relation("borrower")
+  approvedLoans Loan[]         @relation("approver")
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Asset {
+  id             String      @id @default(uuid())
+  namaTv         String      @map("nama_tv")
+  kodeInventaris String      @unique @map("kode_inventaris")
+  merk           String
+  ukuran         String
+  lokasi         String
+  status         AssetStatus @default(TERSEDIA)
+  kondisi        String      @default("Baik")
+  fotoUrl        String?     @map("foto_url")
+  qrCodeUrl      String?     @map("qr_code_url")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  loans Loan[]
+
+  @@map("assets")
+}
+
+model Loan {
+  id                String     @id @default(uuid())
+  assetId           String     @map("asset_id")
+  userId            String     @map("user_id")
+  tglPinjam         DateTime   @map("tgl_pinjam")
+  tglKembaliRencana DateTime   @map("tgl_kembali_rencana")
+  tglKembaliAktual  DateTime?  @map("tgl_kembali_aktual")
+  status            LoanStatus @default(PENDING)
+  keperluan         String
+  departemen        String
+  approvedBy        String?    @map("approved_by")
+  catatanAdmin      String?    @map("catatan_admin")
+  source            String     @default("WEB")
+  isExtension       Boolean    @default(false) @map("is_extension")
+  parentLoanId      String?    @map("parent_loan_id")
+  reminderSent      Boolean    @default(false) @map("reminder_sent")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  asset        Asset          @relation(fields: [assetId], references: [id])
+  user         User           @relation("borrower", fields: [userId], references: [id])
+  approver     User?          @relation("approver", fields: [approvedBy], references: [id])
+  parentLoan   Loan?          @relation("extensions", fields: [parentLoanId], references: [id])
+  extensions   Loan[]         @relation("extensions")
+  handoverLogs HandoverLog[]
+
+  @@map("loans")
+}
+
+model HandoverLog {
+  id        String       @id @default(uuid())
+  loanId    String       @map("loan_id")
+  tipe      HandoverType
+  kondisi   String
+  fotoUrl   String?      @map("foto_url")
+  catatan   String?
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  loan Loan @relation(fields: [loanId], references: [id])
+
+  @@map("handover_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  type      String
+  refId     String?  @map("ref_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  action    String
+  entity    String
+  entityId  String   @map("entity_id")
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
