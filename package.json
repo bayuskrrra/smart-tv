@@ -1,0 +1,10 @@
+{
+  "name": "smarttv-lending",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "cd backend && npm install && npx prisma generate",
+    "start": "cd backend && node src/server.js"
+  }
+}
